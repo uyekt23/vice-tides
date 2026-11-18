@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vice Tides — Palmera Bay</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1a0f1e; font-family: "Segoe UI", system-ui, sans-serif; }
+  #scene { position: fixed; inset: 0; display: block; }
+  /* ---------- HUD ---------- */
+  #hud { position: fixed; inset: 0; pointer-events: none; display: none; color: #fff; }
+  #minimapWrap { position: absolute; left: 16px; top: 16px; width: 188px; height: 188px; border-radius: 50%;
+    border: 3px solid rgba(255,255,255,.75); overflow: hidden; box-shadow: 0 4px 18px rgba(0,0,0,.45); background: #2b3a2e; }
+  #minimap { width: 188px; height: 188px; display: block; }
+  #healthWrap { position: absolute; left: 24px; top: 214px; width: 172px; }
+  .barLabel { font-size: 11px; letter-spacing: 2px; text-shadow: 0 1px 3px #000; opacity: .9; }
+  #healthBarOuter { height: 12px; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.6); border-radius: 6px; overflow: hidden; }
+  #healthBar { height: 100%; width: 100%; background: linear-gradient(90deg, #ff5f6d, #ffc371); transition: width .18s; }
+  #weaponBox { margin-top: 6px; font-size: 13px; font-weight: 600; text-shadow: 0 1px 3px #000; }
+  #moneyBox { position: absolute; right: 20px; top: 14px; text-align: right; }
+  #money { font-size: 30px; font-weight: 800; color: #7dff8a; text-shadow: 0 2px 6px rgba(0,0,0,.7); letter-spacing: 1px; }
+  #stars { font-size: 26px; letter-spacing: 4px; color: #ffd94d; text-shadow: 0 2px 6px rgba(0,0,0,.8); min-height: 32px; }
+  #stars .off { color: rgba(255,255,255,.22); }
+  #objective { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); max-width: 46%;
+    background: rgba(10,8,20,.55); border: 1px solid rgba(255,217,77,.55); border-radius: 10px; padding: 8px 16px;
+    font-size: 15px; text-align: center; text-shadow: 0 1px 2px #000; }
+  #objective b { color: #ffd94d; }
+  #prompt { position: absolute; bottom: 118px; left: 50%; transform: translateX(-50%); background: rgba(10,8,20,.65);
+    padding: 7px 14px; border-radius: 8px; font-size: 15px; display: none; }
+  #prompt b { color: #ffd94d; background: rgba(255,255,255,.14); border-radius: 4px; padding: 0 6px; }
+  #phone { position: absolute; right: 20px; bottom: 20px; width: 300px; background: linear-gradient(160deg, #232333, #12121e);
+    border: 2px solid #3c3c55; border-radius: 18px; padding: 12px 14px; display: none; box-shadow: 0 8px 24px rgba(0,0,0,.5); }
+  #phoneHead { font-size: 11px; letter-spacing: 2px; color: #9fd8ff; border-bottom: 1px solid #3c3c55; padding-bottom: 6px; margin-bottom: 8px; }
+  #phoneFrom { font-weight: 700; color: #ffd94d; font-size: 14px; }
+  #phoneText { font-size: 14px; line-height: 1.45; margin-top: 4px; }
+  #toast { position: absolute; top: 84px; left: 50%; transform: translateX(-50%); font-size: 20px; font-weight: 700;
+    color: #fff; text-shadow: 0 2px 8px #000; opacity: 0; transition: opacity .3s; }
+  #timer { position: absolute; top: 120px; left: 50%; transform: translateX(-50%); font-size: 26px; font-weight: 800;
+    color: #ffd94d; text-shadow: 0 2px 8px #000; display: none; }
+  #crosshair { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); font-size: 22px; color: rgba(255,255,255,.85);
+    text-shadow: 0 0 4px #000; display: none; }
+  #speedo { position: absolute; right: 24px; bottom: 190px; font-size: 15px; font-weight: 700; text-shadow: 0 1px 4px #000; display: none; }
+  /* ---------- Screens ---------- */
+  .screen { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; flex-direction: column;
+    text-align: center; color: #fff; z-index: 5; }
+  #titleScreen { background: linear-gradient(180deg, rgba(38,10,54,.25), rgba(10,4,20,.78)); }
+  #gameTitle { font-size: 84px; font-weight: 900; letter-spacing: 6px; margin: 0;
+    background: linear-gradient(180deg, #ffe259, #ffa751 55%, #ff5f9e); -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 4px 14px rgba(0,0,0,.6)); }
+  #gameSub { font-size: 20px; letter-spacing: 8px; margin: 2px 0 14px; color: #bdf3ff; text-shadow: 0 2px 8px #000; }
+  .storyBox { max-width: 620px; font-size: 16px; line-height: 1.55; background: rgba(8,6,18,.55); border-radius: 12px; padding: 14px 20px; }
+  .controlsBox { margin-top: 12px; font-size: 13.5px; line-height: 1.7; color: #e8e4ff; background: rgba(8,6,18,.45); border-radius: 12px; padding: 10px 22px; }
+  .controlsBox b { color: #ffd94d; }
+  .bigBtn { pointer-events: auto; margin-top: 18px; font-size: 21px; font-weight: 800; letter-spacing: 2px; cursor: pointer;
+    color: #24102e; background: linear-gradient(180deg, #ffe259, #ffa751); border: none; border-radius: 999px; padding: 13px 46px;
+    box-shadow: 0 6px 20px rgba(0,0,0,.5); }
+  .bigBtn:hover { filter: brightness(1.08); }
+  #pauseScreen, #endScreen { background: rgba(8,4,16,.72); }
+  .screen h2 { font-size: 44px; margin: 0 0 10px; letter-spacing: 3px; }
+  .screen p { max-width: 560px; line-height: 1.5; }
+  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+</style>
+</head>
+<body>
+<canvas id="scene" aria-label="Vice Tides: an open-world crime game in the coastal city of Palmera Bay"></canvas>
+
+<div id="hud">
+  <div id="minimapWrap"><canvas id="minimap" width="188" height="188"></canvas></div>
+  <div id="healthWrap">
+    <div class="barLabel">HEALTH</div>
+    <div id="healthBarOuter"><div id="healthBar"></div></div>
+    <div id="weaponBox">FISTS</div>
+  </div>
+  <div id="moneyBox"><div id="stars"></div><div id="money">$0</div></div>
+  <div id="objective"></div>
+  <div id="timer"></div>
+  <div id="toast"></div>
+  <div id="prompt"></div>
+  <div id="crosshair">+</div>
+  <div id="speedo"></div>
+  <div id="phone"><div id="phoneHead">PALMERA MOBILE</div><div id="phoneFrom"></div><div id="phoneText"></div></div>
+</div>
+
+<div id="titleScreen" class="screen">
+  <h1 id="gameTitle">VICE TIDES</h1>
+  <div id="gameSub">P A L M E R A &nbsp; B A Y</div>
+  <div class="storyBox">You are <b>Rico Marlin</b>, a boat hand who lost everything when the marina syndicate framed him.
+    Fixer <b>Dario Venn</b> offers a way back: run his jobs across Palmera Bay — steal, deliver, outrun the law —
+    and earn enough to buy back your boat and your name.</div>
+  <div class="controlsBox">
+    <b>WASD</b> move / drive &nbsp; <b>Mouse</b> camera &nbsp; <b>Shift</b> sprint &nbsp; <b>E</b> enter / exit car<br>
+    <b>Click</b> punch / shoot &nbsp; <b>Q</b> swap weapon &nbsp; <b>Space</b> handbrake &nbsp; <b>P</b> pause
+  </div>
+  <button class="bigBtn" id="startBtn">START ENGINE</button>
+  <button class="bigBtn" id="continueBtn" style="display:none">CONTINUE</button>
+</div>
+
+<div id="pauseScreen" class="screen">
+  <h2>PAUSED</h2>
+  <p id="pauseStats"></p>
+  <button class="bigBtn" id="resumeBtn">RESUME</button>
+  <button class="bigBtn" id="restartBtn">NEW GAME</button>
+</div>
+
+<div id="endScreen" class="screen">
+  <h2 id="endTitle">BUSTED</h2>
+  <p id="endText"></p>
+  <button class="bigBtn" id="respawnBtn">BACK TO THE BAY</button>
+</div>
+
+<p id="status" role="status" aria-live="polite"></p>
+<script src="./vendor/three.min.js"></script>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
