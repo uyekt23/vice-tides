@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tanda Tangani Entry Vice Tides — make.fun gta6-01</title>
+<style>
+  body { font-family: system-ui, sans-serif; background:#0e1420; color:#e8eef7; margin:0; padding:24px; }
+  .card { max-width:640px; margin:0 auto; background:#16202f; border:1px solid #263650; border-radius:14px; padding:24px; }
+  h1 { font-size:20px; margin:0 0 6px; }
+  p { color:#a9bcd4; line-height:1.5; }
+  button { background:#7c5cff; color:#fff; border:0; border-radius:10px; padding:12px 18px; font-size:16px; cursor:pointer; width:100%; margin-top:12px; }
+  button:disabled { background:#3a4a63; cursor:default; }
+  button.secondary { background:#22334d; }
+  textarea { width:100%; box-sizing:border-box; background:#0b111c; color:#cfe3ff; border:1px solid #263650; border-radius:10px; padding:10px; font-family:ui-monospace, monospace; font-size:12px; margin-top:8px; }
+  .ok { color:#5fd68a; } .warn { color:#ffb84d; } .err { color:#ff7b7b; }
+  .addr { font-family:ui-monospace, monospace; font-size:12px; word-break:break-all; }
+  .step { margin-top:18px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Tanda Tangani Entry Vice Tides</h1>
+  <p>Ini tanda tangan buat submit game <b>Vice Tides</b> ke bounty make.fun <b>gta6-01</b>, pakai wallet Phantom Paduka. Halaman ini tidak mengirim apa pun ke mana-mana — tanda tangannya Paduka salin sendiri ke Dinggo di chat.</p>
+
+  <div class="step">
+    <button id="btnConnect">1. Hubungkan Phantom</button>
+    <p id="connInfo" class="addr"></p>
+  </div>
+
+  <div class="step">
+    <button id="btnSign" disabled>2. Buat pesan &amp; tanda tangani</button>
+    <p id="signInfo"></p>
+  </div>
+
+  <div class="step" id="resultBox" style="display:none">
+    <p><b>3. Salin paket ini dan kirim ke Dinggo di chat</b> (pesannya berlaku 10 menit — langsung kirim ya):</p>
+    <textarea id="pkg" rows="14" readonly></textarea>
+    <button id="btnCopy" class="secondary">Salin paket</button>
+    <p id="copyInfo"></p>
+  </div>
+</div>
+
+<script>
+const EXPECTED_WALLET = "GWrbzR3BC3Y5sfvuY7hmKaFUxYBp7qKSRJgHwffGaR8t";
+const FIXED = {
+  domain: "make.fun",
+  competition: "gta6-01",
+  repo: "https://github.com/uyekt23/vice-tides",
+  commit: "e694efbade716271e7a4e902c1b6a5f0992c4a5b",
+  transcripts: "c892c7ee5506d546acd64d6ec35e2054c19328704a7c95879c2deaba8ab1ddf3"
+};
+const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+function b58encode(bytes) {
+  const digits = [0];
+  for (const b of bytes) {
+    let carry = b;
+    for (let i = 0; i < digits.length; i++) {
+      carry += digits[i] << 8;
+      digits[i] = carry % 58;
+      carry = (carry / 58) | 0;
+    }
+    while (carry > 0) { digits.push(carry % 58); carry = (carry / 58) | 0; }
+  }
+  let zeros = 0;
+  while (zeros < bytes.length && bytes[zeros] === 0) zeros++;
+  let s = "1".repeat(zeros);
+  for (let i = digits.length - 1; i >= 0; i--) s += B58[digits[i]];
+  return s;
+}
+function getProvider() {
+  if (window.phantom && window.phantom.solana) return window.phantom.solana;
+  if (window.solana) return window.solana;
+  return null;
+}
+let provider = null;
+const btnConnect = document.getElementById('btnConnect');
+const btnSign = document.getElementById('btnSign');
+const connInfo = document.getElementById('connInfo');
+const signInfo = document.getElementById('signInfo');
+
+btnConnect.onclick = async () => {
+  provider = getProvider();
+  if (!provider) {
+    connInfo.innerHTML = '<span class="err">Phantom tidak ketemu di browser ini. Buka halaman ini di Chrome laptop yang ada Phantom-nya.</span>';
+    return;
+  }
+  try {
+    const res = await provider.connect();
+    const addr = (res && res.publicKey ? res.publicKey : provider.publicKey).toString();
+    if (addr === EXPECTED_WALLET) {
+      connInfo.innerHTML = '<span class="ok">Terhubung: ' + addr + '</span><br>Ini wallet yang benar.';
+      btnSign.disabled = false;
+    } else {
+      connInfo.innerHTML = '<span class="warn">Terhubung: ' + addr + '</span><br>Ini BUKAN wallet untuk entry ini (' + EXPECTED_WALLET + '). Ganti akun di Phantom dulu, lalu hubungkan lagi.';
+    }
+  } catch (e) {
+    connInfo.innerHTML = '<span class="err">Koneksi ditolak: ' + e.message + '</span>';
+  }
+};
+
+btnSign.onclick = async () => {
+  try {
+    const nonceBytes = new Uint8Array(16);
+    crypto.getRandomValues(nonceBytes);
+    const nonce = Array.from(nonceBytes).map(x => x.toString(16).padStart(2, '0')).join('');
+    const issuedAt = new Date().toISOString();
+    const message = [
+      "make.fun entry v1",
+      "Domain: " + FIXED.domain,
+      "Competition: " + FIXED.competition,
+      "Repo: " + FIXED.repo,
+      "Commit: " + FIXED.commit,
+      "Transcripts: " + FIXED.transcripts,
+      "Wallet: " + EXPECTED_WALLET,
+      "Nonce: " + nonce,
+      "Issued At: " + issuedAt
+    ].join("\n");
+    const encoded = new TextEncoder().encode(message);
+    const res = await provider.signMessage(encoded, 'utf8');
+    const sigBytes = res && res.signature ? res.signature : res;
+    const signature = b58encode(sigBytes);
+    document.getElementById('pkg').value = message + "\n---\n" + signature;
+    document.getElementById('resultBox').style.display = 'block';
+    signInfo.innerHTML = '<span class="ok">Tanda tangan berhasil dibuat.</span> Sekarang salin paket di bawah dan kirim ke Dinggo.';
+  } catch (e) {
+    signInfo.innerHTML = '<span class="err">Tanda tangan gagal/dibatalkan: ' + e.message + '</span>';
+  }
+};
+
+document.getElementById('btnCopy').onclick = async () => {
+  const ta = document.getElementById('pkg');
+  try {
+    await navigator.clipboard.writeText(ta.value);
+    document.getElementById('copyInfo').innerHTML = '<span class="ok">Tersalin. Tempel di chat Dinggo sekarang.</span>';
+  } catch (e) {
+    ta.select();
+    document.execCommand('copy');
+    document.getElementById('copyInfo').innerHTML = '<span class="ok">Tersalin. Tempel di chat Dinggo sekarang.</span>';
+  }
+};
+</script>
+</body>
+</html>
